@@ -111,7 +111,9 @@ class TopicAiService {
         
         let topic_2 = try await self.createTopic2(topic: topic, pageInfo: pageInfo!, war_sides: war_sides)
         
-        return [topic_1, topic_2]
+        let topic_3 = try await self.createTopic3(topic: topic, pageInfo: pageInfo!)
+        
+        return [topic_1, topic_2, topic_3]
     }
     
     func createTopic1(topic: String, pageInfo: PageInfo) async throws -> Topic {
@@ -120,12 +122,12 @@ class TopicAiService {
             Message(role: .system, content: "En base a lo anterior, explica brevemente en no mas de un parrafo de 200 carácteres los principales bandos que hubo en la guerra '\(topic)'.")
         ])
         let war_sides = try await self.multipleAnswerQuestion(messages: [
-            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: topic_1_content),
             Message(role: .system, content: "En base a lo anterior escribe los principales bandos que hubo en la guerra '\(topic)'.")
         ])
         let incorrect_options = try await self.multipleAnswerQuestion(messages: [
             Message(role: .system, content: String(describing: pageInfo)),
-            Message(role: .system, content: "Para la pregunta '¿Cuáles fueron los bandos que participaron en la guerra?' las respuestas correctas son: \(String(describing: war_sides)).\nCrea UNICAMENTE respuestas INCORRECTAS hasta que haya un total de 4 respuestas (entre correctas e incorrectas).")
+            Message(role: .system, content: "Para la pregunta '¿Cuáles fueron los bandos que participaron en la guerra?' las respuestas correctas son: \(String(describing: war_sides)).\nCrea UNICAMENTE 2 respuestas INCORRECTAS.")
         ])
         let clue = try await self.openai.simpleQuestion(messages: [
             Message(role: .system, content: String(describing: pageInfo)),
@@ -155,7 +157,7 @@ class TopicAiService {
         options.append("Empate")
         
         let correct_option = try await self.multipleOptionQuestion(messages: [
-            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: topic_2_content),
             Message(role: .system, content: "En base a lo anterior, selecciona el bando ganador de la guerra '\(topic)' (o empate si no gano nadie).")
         ], options: options)
         
@@ -166,7 +168,7 @@ class TopicAiService {
             Message(role: .system, content: "Para la pregunta '¿¿Cuál fue el bando ganador de la guerra?' la respuesta correcta es: \(correct_option).Y las respuestas incorrectas son: \(String(describing: incorrect_options)).\nCrea una oración corta que sea una pista para ayudar a los lectores a descubrir la respuesta correcta.")
         ])
         let topic_2 = Topic(
-            title: "Los bandos de la guerra.",
+            title: "Los resultados del combate.",
             content: topic_2_content,
             question: TopicQuestion(
                 question_type: .single_selection,
@@ -178,6 +180,38 @@ class TopicAiService {
         )
         
         return topic_2
+    }
+    
+    func createTopic3(topic: String, pageInfo: PageInfo) async throws -> Topic {
+        let topic_3_content = try await self.openai.simpleQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "En base a lo anterior, explica brevemente en no mas de un parrafo de 200 carácteres las principales concecuencias que hubo despues de la guerra. '\(topic)'.")
+        ])
+        let correctOption = try await self.openai.simpleQuestion(messages: [
+            Message(role: .system, content: topic_3_content),
+            Message(role: .system, content: "En base a lo anterior escribe la principal concecuencia de la guerra '\(topic)' en menos de 10 palabras.")
+        ])
+        let incorrectOptions = try await self.multipleAnswerQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "Para la pregunta '¿Cuáles fueron los bandos que participaron en la guerra?' la respuesta correcta es: \(correctOption).\nCrea UNICAMENTE 2 oraciones cortas de menos de 10  palabras que serviran como respuestas INCORRECTAS.")
+        ])
+        let clue = try await self.openai.simpleQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "Para la pregunta '¿Cuál fue la principal concecuencia de la guerra?' la respuesta correcta es: \(correctOption).Y las respuestas incorrectas son: \(String(describing: incorrectOptions)).\nCrea una oración corta que sea una pista para ayudar a los lectores a descubrir las respuestas correctas.")
+        ])
+        let topic_3 = Topic(
+            title: "Las consecuencias de la guerra.",
+            content: topic_3_content,
+            question: TopicQuestion(
+                question_type: .single_selection,
+                content: "¿Cuál fue la principal concecuencia de la guerra?",
+                correct_options: [correctOption],
+                incorrect_options: incorrectOptions,
+                clue: clue
+            )
+        )
+        
+        return topic_3
     }
     
     
