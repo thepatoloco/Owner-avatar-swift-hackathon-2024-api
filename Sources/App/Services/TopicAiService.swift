@@ -223,7 +223,7 @@ class TopicAiService {
         
         let isHistorical = try await self.booleanQuestion(messages: [
             Message(role: .system, content: String(describing: wikiData)),
-            Message(role: .system, content: "Basado en la información anterior, ¿crees qué el tema '\(topic)' esta relacionado con alguna guerra historica verdadera específica? (si el usuario simplemente escribe 'guerra' regresa falso)")
+            Message(role: .system, content: "Basado en la información anterior, ¿crees qué el tema '\(topic)' esta relacionado con alguna guerra historica verdadera específica?")
         ])
         
         return isHistorical
