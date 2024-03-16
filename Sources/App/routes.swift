@@ -5,18 +5,27 @@ app.get { req async in
         "It works!"
     }
     
-    app.get("wiki") { req -> EventLoopFuture<WikipediaSearchResponse> in
+    app.get("wiki") { req -> WikipediaSearchResponse in
         guard let query = req.query[String.self, at: "query"] else {
             throw Abort(.badRequest)
         }
         
         let wikipediaURL = "https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srlimit=7&srsearch=\(query)"
-        return req.client.get(URI(string: wikipediaURL)).flatMapThrowing { response in
-            guard response.status == .ok else {
-                throw Abort(.internalServerError)
-            }
-            return try response.content.decode(WikipediaSearchResponse.self)
+        
+        let response = try await req.client.get(URI(string: wikipediaURL))
+        guard response.status == .ok else {
+            throw Abort(.internalServerError)
         }
+        
+        return try response.content.decode(WikipediaSearchResponse.self)
+    }
+    
+    app.get("openai") { req -> String in
+        guard let message = req.query[String.self, at: "message"] else {
+            throw Abort(.badRequest)
+        }
+        let openai = OpenAiService(client: req.client)
+        return try await openai.simpleQuestion(message: message)
     }
     
     app.get("search-fake") { req -> TopicResponse in
