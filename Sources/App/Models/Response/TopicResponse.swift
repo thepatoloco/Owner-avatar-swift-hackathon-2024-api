@@ -17,7 +17,7 @@ struct TopicQuestion: Codable {
     let question_type: QuestionType
     let content: String
     let correct_options: [String]
-    let incorrect_optinos: [String]
+    let incorrect_options: [String]
     let clue: String
     
 }
@@ -38,4 +38,5 @@ struct TopicResponse: Content {
     let title: String
     let topics: [Topic]
     let questions: [FinalQuestion]
+    let error: Bool
 }

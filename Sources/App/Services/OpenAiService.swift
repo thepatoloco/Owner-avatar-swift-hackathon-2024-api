@@ -14,14 +14,11 @@ class OpenAiService{
         self.client = client
     }
     
-    func simpleQuestion(message: String) async throws -> String {
-        let request = OpenAiApiRequest(model: "gpt-3.5-turbo", messages: [
-            Message(role: .system, content: "You are a helpfull assistant."),
-            Message(role: .user, content: message)
-        ])
+    func simpleQuestion(messages: [Message]) async throws -> String {
+        let request = try OpenAiApiRequest(messages: messages)
         let response = try await self.callApi(input: request)
         
-        return response.choices[0].message.content
+        return response.choices[0].message.content ?? "No response"
     }
     
     func callApi(input: OpenAiApiRequest) async throws -> OpenAiApiResponse {
@@ -31,9 +28,12 @@ class OpenAiService{
         headers.add(name: "Authorization", value: "Bearer \(openaiKey)")
         headers.add(name: "Content-Type", value: "application/json")
         
+        print("OpenAI Request: \(String(describing: String(data: try JSONEncoder().encode(input), encoding: .utf8)))")
+        
         let response = try await client.post(URI(string: apiUrl), headers: headers) { request in
             try request.content.encode(input)
         }
+        print("OpenAI Response: \(response)")
         
         return try response.content.decode(OpenAiApiResponse.self)
     }

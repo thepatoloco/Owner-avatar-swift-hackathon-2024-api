@@ -18,10 +18,10 @@ struct SearchResult: Codable {
     let timestamp: String
 }
 
-struct Query: Codable {
+struct QuerySearch: Codable {
     let search: [SearchResult]
 }
 
 struct WikipediaSearchResponse: Content {
-    let query: Query
+    let query: QuerySearch
 }
