@@ -109,7 +109,9 @@ class TopicAiService {
         let topic_1 = try await self.createTopic1(topic: topic, pageInfo: pageInfo!)
         let war_sides = topic_1.question.correct_options
         
-        return [topic_1]
+        let topic_2 = try await self.createTopic2(topic: topic, pageInfo: pageInfo!, war_sides: war_sides)
+        
+        return [topic_1, topic_2]
     }
     
     func createTopic1(topic: String, pageInfo: PageInfo) async throws -> Topic {
@@ -142,6 +144,40 @@ class TopicAiService {
         )
         
         return topic_1
+    }
+    
+    func createTopic2(topic: String, pageInfo: PageInfo, war_sides: [String]) async throws -> Topic {
+        let topic_2_content = try await self.openai.simpleQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "En base a lo anterior, explica brevemente en no mas de un parrafo de 200 carácteres cual fue el resultado de la guerra, y cual fue el bando ganador (si es que hubo) '\(topic)'.")
+        ])
+        var options = Array(war_sides)
+        options.append("Empate")
+        
+        let correct_option = try await self.multipleOptionQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "En base a lo anterior, selecciona el bando ganador de la guerra '\(topic)' (o empate si no gano nadie).")
+        ], options: options)
+        
+        let incorrect_options = options.filter { $0 != correct_option }
+        
+        let clue = try await self.openai.simpleQuestion(messages: [
+            Message(role: .system, content: String(describing: pageInfo)),
+            Message(role: .system, content: "Para la pregunta '¿¿Cuál fue el bando ganador de la guerra?' la respuesta correcta es: \(correct_option).Y las respuestas incorrectas son: \(String(describing: incorrect_options)).\nCrea una oración corta que sea una pista para ayudar a los lectores a descubrir la respuesta correcta.")
+        ])
+        let topic_2 = Topic(
+            title: "Los bandos de la guerra.",
+            content: topic_2_content,
+            question: TopicQuestion(
+                question_type: .single_selection,
+                content: "¿Cuál fue el bando ganador de la guerra?",
+                correct_options: [correct_option],
+                incorrect_options: incorrect_options,
+                clue: clue
+            )
+        )
+        
+        return topic_2
     }
     
     
@@ -232,5 +268,42 @@ class TopicAiService {
         let json = try JSONSerialization.jsonObject(with: (jsonData ?? "".data(using: .utf8))!, options: []) as? [String: Any]
         
         return json?["answer"] as? [String] ?? []
+    }
+    
+    func multipleOptionQuestion(messages: [Message], options: [String]) async throws -> String {
+        let response = try await self.openai.callApi(input: OpenAiApiRequest(
+            messages: messages,
+            tools: [
+                Tool(
+                    type: .function,
+                    function: Function(
+                        description: "Select the correct option to the question",
+                        name: "option-answer",
+                        parameters: [
+                            "type": JSON(value: "object"),
+                            "properties": JSON(value: [
+                                "answer": JSON(value: [
+                                    "enum": JSON(value: options),
+                                    "description": JSON(value: "select the correct option")
+                                ])
+                            ]),
+                            "required": JSON(value: ["answer"])
+                        ]
+                    )
+                )
+            ],
+            tool_choice: .dict([
+                "type": JSON(value: "function"),
+                "function": JSON(value: [
+                    "name": JSON(value: "option-answer")
+                ])
+            ])
+        ))
+        
+        let jsonString = response.choices[0].message.tool_calls![0].function.arguments
+        let jsonData = jsonString.data(using: .utf8)
+        let json = try JSONSerialization.jsonObject(with: (jsonData ?? "".data(using: .utf8))!, options: []) as? [String: Any]
+        
+        return json?["answer"] as? String ?? ""
     }
 }
